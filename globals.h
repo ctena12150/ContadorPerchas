@@ -48,6 +48,7 @@ void handleNewBarcode(const char *code);
 size_t sessionArticleCount();
 bool getSessionArticle(size_t index, ArticleRecord &out); // 0 = primero leído ... count-1 = activo
 uint32_t getActiveLiveCount();
+uint32_t sessionTotalCount();
 
 void enqueuePendingEnvio(const EnvioRecord &env);
 bool peekPendingEnvio(EnvioRecord &out);

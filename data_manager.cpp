@@ -163,6 +163,21 @@ uint32_t getActiveLiveCount() {
     return c;
 }
 
+// Suma de perchas de TODOS los artículos de la sesión (los ya cerrados
+// más el conteo en vivo del activo). Se resetea a 0 en cada "Inicio".
+uint32_t sessionTotalCount() {
+    uint32_t total = 0;
+    if (xSemaphoreTake(sessionMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        size_t n = currentSession.articles.size();
+        for (size_t i = 0; i + 1 < n; i++) {
+            total += currentSession.articles[i].count; // ya cerrados
+        }
+        xSemaphoreGive(sessionMutex);
+    }
+    total += getActiveLiveCount(); // el activo suma en vivo
+    return total;
+}
+
 // ---- Cola de envíos pendientes de mandar al servidor ----
 
 void enqueuePendingEnvio(const EnvioRecord &env) {

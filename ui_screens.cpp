@@ -16,6 +16,12 @@
 
 // ============================================================
 //  Layout (pantalla 480x320, rotation 1)
+//  0-34    HDR    (título, estado, pendientes, icono calibración)
+//  34-56   INFO   (IP + fecha/hora, letra grande)
+//  60-156  CARD   (artículo actual + total de sesión)
+//  162-246 LIST   (artículos anteriores, con scroll)
+//  250-276 ERR    (banner de error)
+//  280-320 BTN    (botón INICIO/FIN)
 // ============================================================
 #define SCR_W 480
 #define SCR_H 320
@@ -23,27 +29,30 @@
 #define HDR_Y 0
 #define HDR_H 34
 
-#define CARD_Y 38
-#define CARD_H 90
+#define INFO_Y 34
+#define INFO_H 18
 
-#define LIST_Y (CARD_Y + CARD_H + 8)   // 136
-#define LIST_H 100                      // termina en 236
-#define LIST_ROW_H 26
+#define CARD_Y 54
+#define CARD_H 110
+
+#define LIST_Y 166
+#define LIST_H 90
+#define LIST_ROW_H 24
 #define LIST_VISIBLE_ROWS 3
 
-#define ERR_Y 240
-#define ERR_H 26
+#define ERR_Y 258
+#define ERR_H 20
 
 #define BTN_W 220
-#define BTN_H 42
+#define BTN_H 40
 #define BTN_X ((SCR_W - BTN_W) / 2)
-#define BTN_Y 272
+#define BTN_Y 280
 
 #define ARROW_X (SCR_W - 30)
 #define ARROW_W 26
-#define ARROW_H 34
-#define ARROW_UP_Y (LIST_Y + 18)
-#define ARROW_DN_Y (LIST_Y + LIST_H - 40)
+#define ARROW_H 30
+#define ARROW_UP_Y (LIST_Y + 12)
+#define ARROW_DN_Y (LIST_Y + LIST_H - 32)
 
 #define CAL_ICON_X (SCR_W - 30)
 #define CAL_ICON_Y 4
@@ -56,14 +65,17 @@
 static uint32_t lastTouchMillis = 0;
 static bool lastHasError = false;
 static char lastErrorShown[128] = "";
-static size_t oldOffset = 0; // desplazamiento (scroll) en la lista de artículos anteriores
+static size_t oldOffset = 0;
 static uint32_t calIconPressStart = 0;
 
-static char lastCardBarcode[BARCODE_MAX_LEN] = "\x01"; // valor imposible -> fuerza 1er dibujo
+static char lastCardBarcode[BARCODE_MAX_LEN] = "\x01";
 static uint32_t lastCardCount = 0xFFFFFFFF;
+static uint32_t lastCardTotal = 0xFFFFFFFF;
 static time_t lastCardStart = (time_t)-1;
 static size_t lastSessionCountShown = 0xFFFFFFFF;
 static size_t lastOldOffsetShown = 0xFFFFFFFF;
+static char lastIpShown[28] = "";
+static char lastTimeShown[24] = "";
 
 static void formatTimeShort(time_t t, char *out, size_t outSize) {
     struct tm tmv;
@@ -85,7 +97,6 @@ static void drawHeader(bool force) {
         tft.setCursor(8, 8);
         tft.print("CONTADOR DE PERCHAS");
 
-        // Icono de recalibración (mantener pulsado 1.5s para recalibrar)
         tft.fillRoundRect(CAL_ICON_X, CAL_ICON_Y, CAL_ICON_W, CAL_ICON_H, 4, COL_CARD);
         tft.drawRoundRect(CAL_ICON_X, CAL_ICON_Y, CAL_ICON_W, CAL_ICON_H, 4, COL_BORDER);
         tft.setTextColor(COL_MUTED, COL_CARD);
@@ -118,7 +129,53 @@ static void drawHeader(bool force) {
 }
 
 // ============================================================
-//  Tarjeta del artículo activo (el que está sumando perchas ahora)
+//  Franja de IP y fecha/hora (letra grande, bien visible)
+// ============================================================
+static void drawInfoBar(bool force) {
+    if (force) {
+        tft.fillRect(0, INFO_Y, SCR_W, INFO_H, COL_BG);
+    }
+
+    char ipBuf[28];
+    if (WiFi.status() == WL_CONNECTED) {
+        snprintf(ipBuf, sizeof(ipBuf), "IP %s", WiFi.localIP().toString().c_str());
+    } else if (WiFi.getMode() == WIFI_AP) {
+        snprintf(ipBuf, sizeof(ipBuf), "IP %s", WiFi.softAPIP().toString().c_str());
+    } else {
+        snprintf(ipBuf, sizeof(ipBuf), "IP sin conexion");
+    }
+
+    if (force || strcmp(ipBuf, lastIpShown) != 0) {
+        tft.fillRect(6, INFO_Y + 1, 190, INFO_H - 1, COL_BG);
+        tft.setTextColor(COL_MUTED, COL_BG);
+        tft.setTextSize(1);
+        tft.setCursor(6, INFO_Y + 5);
+        tft.print(ipBuf);
+        strncpy(lastIpShown, ipBuf, sizeof(lastIpShown));
+    }
+
+    char tbuf[24];
+    time_t now = time(nullptr);
+    if (now > 1700000000) { // ya se sincronizó por NTP
+        struct tm tmv;
+        localtime_r(&now, &tmv);
+        strftime(tbuf, sizeof(tbuf), "%d/%m/%Y %H:%M:%S", &tmv);
+    } else {
+        snprintf(tbuf, sizeof(tbuf), "Sin hora NTP");
+    }
+
+    if (force || strcmp(tbuf, lastTimeShown) != 0) {
+        tft.fillRect(200, INFO_Y + 1, SCR_W - 206, INFO_H - 1, COL_BG);
+        tft.setTextColor(COL_MUTED, COL_BG);
+        tft.setTextSize(1);
+        tft.setCursor(200, INFO_Y + 5);
+        tft.print(tbuf);
+        strncpy(lastTimeShown, tbuf, sizeof(lastTimeShown));
+    }
+}
+
+// ============================================================
+//  Tarjeta del artículo activo + total de la sesión
 // ============================================================
 static void drawCard(bool force) {
     if (force) {
@@ -140,7 +197,7 @@ static void drawCard(bool force) {
     barcodeToShow[sizeof(barcodeToShow) - 1] = '\0';
 
     if (force || strcmp(barcodeToShow, lastCardBarcode) != 0) {
-        tft.fillRect(16, CARD_Y + 20, SCR_W - 32, 24, COL_CARD);
+        tft.fillRect(16, CARD_Y + 20, SCR_W - 32, 22, COL_CARD);
         tft.setTextColor(COL_ACCENT, COL_CARD);
         tft.setTextSize(2);
         tft.setCursor(16, CARD_Y + 20);
@@ -150,11 +207,11 @@ static void drawCard(bool force) {
 
     if (force || liveCount != lastCardCount) {
         char buf[24];
-        snprintf(buf, sizeof(buf), "Cont: %-6lu", (unsigned long)liveCount);
-        tft.fillRect(266, CARD_Y + 48, 200, 28, COL_CARD);
+        snprintf(buf, sizeof(buf), "Cont:%-6lu", (unsigned long)liveCount);
+        tft.fillRect(256, CARD_Y + 46, 216, 28, COL_CARD);
         tft.setTextColor(COL_TEXT, COL_CARD);
         tft.setTextSize(3);
-        tft.setCursor(266, CARD_Y + 48);
+        tft.setCursor(256, CARD_Y + 46);
         tft.print(buf);
         lastCardCount = liveCount;
     }
@@ -163,13 +220,25 @@ static void drawCard(bool force) {
     if (force || st != lastCardStart) {
         char tbuf[10] = "--:--:--";
         if (has) formatTimeShort(st, tbuf, sizeof(tbuf));
-        tft.fillRect(16, CARD_Y + 52, 240, 20, COL_CARD);
+        tft.fillRect(16, CARD_Y + 48, 240, 18, COL_CARD);
         tft.setTextColor(COL_MUTED, COL_CARD);
         tft.setTextSize(1);
-        tft.setCursor(16, CARD_Y + 56);
+        tft.setCursor(16, CARD_Y + 51);
         tft.print("Inicio: ");
         tft.print(tbuf);
         lastCardStart = st;
+    }
+
+    uint32_t total = sessionTotalCount();
+    if (force || total != lastCardTotal) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Total: %-6lu", (unsigned long)total);
+        tft.fillRect(16, CARD_Y + 78, SCR_W - 32, 30, COL_CARD);
+        tft.setTextColor(COL_WARN, COL_CARD);
+        tft.setTextSize(3);
+        tft.setCursor(16, CARD_Y + 78);
+        tft.print(buf);
+        lastCardTotal = total;
     }
 }
 
@@ -177,7 +246,7 @@ static void drawCard(bool force) {
 //  Lista de artículos ya leídos en esta sesión (con scroll)
 // ============================================================
 static void drawOldRow(int rowIndex, bool hasItem, const ArticleRecord &rec) {
-    int y = LIST_Y + 22 + rowIndex * LIST_ROW_H;
+    int y = LIST_Y + 18 + rowIndex * LIST_ROW_H;
     uint16_t rowBg = (rowIndex % 2 == 0) ? COL_CARD : COL_BG;
     tft.fillRect(16, y, 420, LIST_ROW_H - 2, rowBg);
     if (!hasItem) return;
@@ -185,12 +254,21 @@ static void drawOldRow(int rowIndex, bool hasItem, const ArticleRecord &rec) {
     char tbuf[10];
     formatTimeShort(rec.startTime, tbuf, sizeof(tbuf));
 
+    char shortBarcode[15];
+    strncpy(shortBarcode, rec.barcode, sizeof(shortBarcode) - 1);
+    shortBarcode[sizeof(shortBarcode) - 1] = '\0';
+
     tft.setTextColor(COL_TEXT, rowBg);
-    tft.setTextSize(1);
-    tft.setCursor(20, y + 6);
-    char line[72];
-    snprintf(line, sizeof(line), "%-22s x%-6lu %s", rec.barcode, (unsigned long)rec.count, tbuf);
+    tft.setTextSize(2);
+    tft.setCursor(20, y + 3);
+    char line[32];
+    snprintf(line, sizeof(line), "%-14s x%-4lu", shortBarcode, (unsigned long)rec.count);
     tft.print(line);
+
+    tft.setTextColor(COL_MUTED, rowBg);
+    tft.setTextSize(2);
+    tft.setCursor(340, y + 3);
+    tft.print(tbuf);
 }
 
 static void drawList(bool force) {
@@ -207,12 +285,12 @@ static void drawList(bool force) {
         tft.drawRoundRect(ARROW_X, ARROW_UP_Y, ARROW_W, ARROW_H, 4, COL_BORDER);
         tft.setTextColor(COL_TEXT, COL_CARD);
         tft.setTextSize(2);
-        tft.setCursor(ARROW_X + 7, ARROW_UP_Y + 8);
+        tft.setCursor(ARROW_X + 7, ARROW_UP_Y + 6);
         tft.print("^");
 
         tft.fillRoundRect(ARROW_X, ARROW_DN_Y, ARROW_W, ARROW_H, 4, COL_CARD);
         tft.drawRoundRect(ARROW_X, ARROW_DN_Y, ARROW_W, ARROW_H, 4, COL_BORDER);
-        tft.setCursor(ARROW_X + 7, ARROW_DN_Y + 8);
+        tft.setCursor(ARROW_X + 7, ARROW_DN_Y + 6);
         tft.print("v");
 
         lastSessionCountShown = 0xFFFFFFFF;
@@ -221,10 +299,10 @@ static void drawList(bool force) {
 
     if (!force && total == lastSessionCountShown && oldOffset == lastOldOffsetShown) return;
 
-    tft.fillRect(16, LIST_Y, 380, 18, COL_BG);
+    tft.fillRect(16, LIST_Y, 380, 16, COL_BG);
     tft.setTextColor(COL_MUTED, COL_BG);
     tft.setTextSize(1);
-    tft.setCursor(16, LIST_Y + 4);
+    tft.setCursor(16, LIST_Y + 2);
     char lbl[48];
     snprintf(lbl, sizeof(lbl), "Anteriores en esta sesion (%u)", (unsigned)oldCount);
     tft.print(lbl);
@@ -234,8 +312,6 @@ static void drawList(bool force) {
         bool hasItem = (k < oldCount);
         ArticleRecord rec;
         if (hasItem) {
-            // el índice count-1 es el activo; el resto son "anteriores",
-            // recorridos del más reciente al más antiguo.
             size_t idx = total - 2 - k;
             hasItem = getSessionArticle(idx, rec);
         }
@@ -299,6 +375,7 @@ static void drawButton(bool force) {
 // ============================================================
 static void drawAll(bool force) {
     drawHeader(force);
+    drawInfoBar(force);
     drawCard(force);
     drawList(force);
     drawErrorBox(force);
@@ -312,20 +389,6 @@ static void handleTouch() {
     uint16_t x, y;
     bool touched = tft.getTouch(&x, &y);
 
-    // --- DEBUG: imprime lecturas crudas de tactil (quitar cuando funcione bien) ---
-    static bool lastTouchedDbg = false;
-    static uint32_t lastDbgPrint = 0;
-    if (touched && (millis() - lastDbgPrint > 150)) {
-        Serial.printf("[TOUCH] x=%u y=%u\n", x, y);
-        lastDbgPrint = millis();
-    }
-    if (touched != lastTouchedDbg) {
-        Serial.printf("[TOUCH] %s\n", touched ? "INICIO toque" : "FIN toque");
-        lastTouchedDbg = touched;
-    }
-    // --- FIN DEBUG ---
-
-    // Icono de recalibración: mantener pulsado 1.5s
     bool onCalIcon = touched && x >= CAL_ICON_X && x <= CAL_ICON_X + CAL_ICON_W &&
                       y >= CAL_ICON_Y && y <= CAL_ICON_Y + CAL_ICON_H;
     if (onCalIcon) {
@@ -345,7 +408,6 @@ static void handleTouch() {
     uint32_t now = millis();
     if (now - lastTouchMillis < 300) return;
 
-    // Flechas de scroll de la lista
     if (x >= ARROW_X && x <= ARROW_X + ARROW_W) {
         if (y >= ARROW_UP_Y && y <= ARROW_UP_Y + ARROW_H) {
             if (oldOffset > 0) oldOffset--;
@@ -353,13 +415,12 @@ static void handleTouch() {
             return;
         }
         if (y >= ARROW_DN_Y && y <= ARROW_DN_Y + ARROW_H) {
-            oldOffset++; // se recorta automáticamente en drawList()
+            oldOffset++;
             lastTouchMillis = now;
             return;
         }
     }
 
-    // Botón INICIO / FIN
     if (x >= BTN_X && x <= BTN_X + BTN_W && y >= BTN_Y && y <= BTN_Y + BTN_H) {
         lastTouchMillis = now;
         if (systemState == STATE_IDLE) {
@@ -395,11 +456,6 @@ void uiInit() {
     bool valid = false;
     storageLoadTouchCalibration(calData, valid);
 
-    // Si mantienes el dedo pulsado en la pantalla al arrancar (>1.2s),
-    // se fuerza una recalibración aunque ya hubiera una guardada. Esto
-    // funciona incluso si la calibración anterior era mala, porque la
-    // DETECCIÓN de toque no depende de la calibración (solo la posición
-    // X/Y calculada sí depende de ella).
     bool forceRecal = false;
     uint32_t touchStart = 0;
     for (int i = 0; i < 20; i++) {
