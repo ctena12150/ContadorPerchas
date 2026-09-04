@@ -132,6 +132,8 @@ sesión:
 ```json
 {
   "envio_id": "EV-20260818T101530-A1B2",
+  "dispositivo": "Linea1-PuestoA",
+  "centro": "1901",
   "creado": "2026-08-18T10:15:30Z",
   "articulos": [
     { "barcode": "1234567890", "start_time": "2026-08-18T09:15:03Z", "count": 214 },

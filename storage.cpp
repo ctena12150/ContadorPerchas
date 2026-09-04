@@ -28,6 +28,20 @@ void storageLoad(AppConfig &cfg) {
     s = prefs.getString("tg_chat", cfg.tg_chat_id);
     s.toCharArray(cfg.tg_chat_id, sizeof(cfg.tg_chat_id));
 
+
+  cfg.sensor_debounce_us = prefs.getUInt("sensor_deb", cfg.sensor_debounce_us);
+
+  s = prefs.getString("web_user", cfg.web_user);
+  s.toCharArray(cfg.web_user, sizeof(cfg.web_user));
+  s = prefs.getString("web_pass", cfg.web_pass);
+  s.toCharArray(cfg.web_pass, sizeof(cfg.web_pass));
+
+    s = prefs.getString("device_id", cfg.device_id);
+  s.toCharArray(cfg.device_id, sizeof(cfg.device_id));
+
+    s = prefs.getString("centro_id", cfg.centro_id);
+  s.toCharArray(cfg.centro_id, sizeof(cfg.centro_id));
+
     prefs.end();
 }
 
@@ -41,6 +55,11 @@ void storageSave(const AppConfig &cfg) {
     prefs.putString("api_endpoint", cfg.api_endpoint);
     prefs.putString("tg_token", cfg.tg_bot_token);
     prefs.putString("tg_chat", cfg.tg_chat_id);
+    prefs.putUInt("sensor_deb", cfg.sensor_debounce_us);
+    prefs.putString("web_user", cfg.web_user);
+    prefs.putString("web_pass", cfg.web_pass);
+    prefs.putString("device_id", cfg.device_id);
+    prefs.putString("centro_id", cfg.centro_id);
     prefs.end();
 }
 

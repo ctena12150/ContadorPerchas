@@ -104,6 +104,25 @@ static void drawHeader(bool force) {
         tft.setCursor(CAL_ICON_X + 9, CAL_ICON_Y + 9);
         tft.print("C");
 
+        // Nombre del dispositivo, discreto, bajo el titulo.
+       // Solo se dibuja una vez (force) porque no cambia sin reiniciar.
+     // Centro y dispositivo, discreto, bajo el titulo.
+    // Solo se dibuja una vez (force) porque no cambia sin reiniciar.
+    if (strlen(appConfig.centro_id) > 0 || strlen(appConfig.device_id) > 0) {
+      char idLine[70];
+      if (strlen(appConfig.centro_id) > 0 && strlen(appConfig.device_id) > 0) {
+        snprintf(idLine, sizeof(idLine), "%s . %s", appConfig.centro_id, appConfig.device_id);
+      } else if (strlen(appConfig.centro_id) > 0) {
+        snprintf(idLine, sizeof(idLine), "%s", appConfig.centro_id);
+      } else {
+        snprintf(idLine, sizeof(idLine), "%s", appConfig.device_id);
+      }
+      tft.setTextColor(COL_MUTED, COL_HEADER);
+      tft.setTextSize(1);
+      tft.setCursor(8, HDR_H - 9);
+      tft.print(idLine);
+    }
+
         lastState = (SystemState)0xFF;
         lastPending = 0xFFFFFFFF;
     }

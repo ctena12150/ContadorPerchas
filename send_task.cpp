@@ -22,6 +22,8 @@ bool postEnvioToEndpoint(const EnvioRecord &env) {
 
     JsonDocument doc;
     doc["envio_id"] = env.id;
+    doc["dispositivo"] = appConfig.device_id;
+    doc["centro"] = appConfig.centro_id;    
     doc["creado"] = toIso8601(env.createdAt);
 
     JsonArray arr = doc["articulos"].to<JsonArray>();
@@ -34,7 +36,8 @@ bool postEnvioToEndpoint(const EnvioRecord &env) {
 
     String body;
     serializeJson(doc, body);
-
+    Serial.println("Envio"); 
+    Serial.println(body); 
     int code = http.POST(body);
     http.end();
 

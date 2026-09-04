@@ -26,7 +26,7 @@
 // GPIO 5: mismo pin que "PIN_PRENDA" en tu código de referencia.
 #define PIN_SENSOR     5
 #define SENSOR_ACTIVE_LOW   true   // salida NPN típica -> pulso a GND = detección
-#define SENSOR_DEBOUNCE_US  15000   // ajustar según velocidad real de las perchas
+#define SENSOR_DEBOUNCE_US  100   // ajustar según velocidad real de las perchas
 
 // ============================================================
 //  PARÁMETROS DE APLICACIÓN
@@ -73,4 +73,24 @@ struct AppConfig {
     char api_endpoint[128] = "https://tuservidor.example.com/api/perchas";
     char tg_bot_token[64]  = "";
     char tg_chat_id[32]    = "";
+    // Debounce del sensor de fibra óptica (microsegundos).
+  // Editable desde el portal web sin recompilar ni resubir firmware.
+  uint32_t sensor_debounce_us = SENSOR_DEBOUNCE_US;
+
+  // Credenciales de acceso al portal web de configuración.
+  // Si AMBOS campos están vacíos (estado de fábrica / primer arranque)
+  // el portal no pide usuario/contraseña. En cuanto se rellena alguno
+  // desde la propia web, todo el portal queda protegido con HTTP Basic Auth.
+  char web_user[33] = "";
+  char web_pass[65] = "";
+    // Identificador de este dispositivo. Se envia en cada POST para que
+  // el backend sepa de que maquina/puesto viene cada envio. Editable
+  // desde el portal web; util cuando hay varios ESP32 enviando al
+  // mismo endpoint (p.ej. "Linea1-PuestoA").
+  char device_id[33] = "";
+    // Centro / tienda / almacen al que pertenece este dispositivo.
+  // Se envia junto al dispositivo en cada POST para poder agrupar
+  // y filtrar en el backend por centro. Editable desde la web.
+  char centro_id[33] = "";
+
 };

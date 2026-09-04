@@ -30,6 +30,13 @@ extern portMUX_TYPE countMux;
 // Contador crudo de pulsos del sensor (diagnóstico)
 extern volatile uint32_t sensorPulseCount;
 
+
+
+// Debounce del sensor en microsegundos, leído desde la ISR.
+// Se sincroniza con appConfig.sensor_debounce_us en counterSensorInit()
+// y cada vez que se guarda configuración nueva desde el portal web.
+extern volatile uint32_t sensorDebounceUs;
+
 // Cola de envíos pendientes de mandar al servidor
 extern SemaphoreHandle_t pendingMutex;
 

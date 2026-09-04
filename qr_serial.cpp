@@ -7,7 +7,12 @@ static void qrReaderTask(void *param) {
     size_t idx = 0;
 
     QRSerial.begin(QR_BAUDRATE, SERIAL_8N1, PIN_QR_RX, PIN_QR_TX);
-
+    
+  // Descarta cualquier ruido/basura que pueda quedar en el buffer justo
+  // al iniciar el UART (muy típico un byte suelto, p.ej. un espacio,
+  // antes de que el lector empiece a mandar codigos de verdad).
+  delay(50);
+  while (QRSerial.available()) QRSerial.read();
     for (;;) {
         if (QRSerial.available()) {
             idx = 0;
@@ -26,7 +31,22 @@ static void qrReaderTask(void *param) {
 
             if (idx > 0) {
                 buf[idx] = '\0';
+                        // Recorta espacios en blanco al principio y al final: filtra
+                // ruido de linea (p.ej. un unico espacio) que no es un
+                // codigo real, sin descartar codigos legitimos que por lo
+                // que sea vinieran con espacios sueltos alrededor.
+                size_t start = 0;
+                while (start < idx && isspace((unsigned char)buf[start])) start++;
+                size_t end = idx;
+                while (end > start && isspace((unsigned char)buf[end - 1])) end--;
+
+                if (end > start) {
+                  size_t len = end - start;
+                  char clean[BARCODE_MAX_LEN];
+                  memcpy(clean, buf + start, len);
+                  clean[len] = '\0';
                 handleNewBarcode(buf);
+              }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
