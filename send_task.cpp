@@ -37,6 +37,7 @@ bool postEnvioToEndpoint(const EnvioRecord &env) {
     String body;
     serializeJson(doc, body);
     Serial.println("Envio"); 
+    Serial.println(appConfig.api_endpoint);
     Serial.println(body); 
     int code = http.POST(body);
     http.end();
