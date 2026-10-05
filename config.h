@@ -35,8 +35,8 @@
 #define ENVIO_ID_LEN              40
 #define MAX_PENDING_ENVIOS        15   // envíos en cola (colchón si se cae la red)
 #define WIFI_CONNECT_TIMEOUT_MS   15000
-#define AP_SSID                  "ESP32-Perchas-Config"
-#define AP_PASSWORD               "config1234"
+#define AP_SSID                  "ESP32-Perchas-Config2"
+#define AP_PASSWORD               "12345678"
 #define WEBSERVER_PORT            80
 #define TELEGRAM_MIN_INTERVAL_MS  60000  // no saturar Telegram con reintentos
 #define HTTP_SEND_RETRY_DELAY_MS  5000

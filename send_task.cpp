@@ -41,12 +41,24 @@ bool postEnvioToEndpoint(const EnvioRecord &env) {
     Serial.println(body); 
     int code = http.POST(body);
     http.end();
+    if (code<200 && code >300)
+    {
+       String msg =
+        "Error enviando\n" +
+        String(env.id) +
+        "\n\n" +
+        body.substring(0, 2000);        
+        telegramNotifyError(msg);
 
+    }
+
+    
     // Se considera éxito cualquier 2xx
     return (code >= 200 && code < 300);
 }
 
 static void sendTaskFn(void *param) {
+  
     for (;;) {
         EnvioRecord env;
         if (peekPendingEnvio(env)) {

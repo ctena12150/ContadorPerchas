@@ -6,7 +6,10 @@ bool connectWiFiSTA() {
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(appConfig.wifi_ssid, appConfig.wifi_pass);
-
+   /*  WiFi.begin(
+      "BleckmannWarehouse",
+      "6AxYNlKe~uE$%nf*hQIkhK+:$/njaJwHVFK^\"S-V"
+  );*/
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - start) < WIFI_CONNECT_TIMEOUT_MS) {
         delay(250);

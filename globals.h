@@ -65,6 +65,8 @@ size_t pendingEnvioCount();
 // ---- sensor ----
 void counterSensorInit();
 
+//void counterSensorPoll();
+
 // ---- lector QR ----
 void qrReaderTaskStart();
 

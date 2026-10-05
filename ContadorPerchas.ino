@@ -37,9 +37,11 @@ void setup() {
 
     // --- Configuración persistente ---
     storageLoad(appConfig);
-
+Serial.println("1");
     // --- Sensor de conteo (fibra optica E3X-NA41) ---
+    
     counterSensorInit();
+    Serial.println("2");
 
     // --- WiFi: intenta STA, si falla monta un AP de configuracion ---
     tft.println("Conectando WiFi...");
@@ -48,7 +50,7 @@ void setup() {
         tft.println("Sin WiFi: modo AP de configuracion");
         tft.println("SSID: " AP_SSID);
         tft.println("IP:   192.168.4.1");
-        startConfigAP();
+         startConfigAP();
     } else {
         tft.print("WiFi OK: ");
         tft.println(WiFi.localIP());
@@ -57,12 +59,15 @@ void setup() {
 
     // --- Portal web de configuracion (disponible en STA o en AP) ---
     configWebServerStart();
+    Serial.println("3");
 
     // --- Telegram ---
     telegramInit();
+    Serial.println("4");
 
     // --- Interfaz tactil (calibra si no hay datos guardados) ---
     uiInit();
+    Serial.println("5");
 
     // --- Tareas independientes ---
     qrReaderTaskStart();  // lectura del lector de codigos por UART
@@ -86,7 +91,7 @@ void loop() {
             ESP.restart();
         }
     }
-
+    
     // Bucle principal: interfaz tactil + portal web de configuracion.
     // El conteo real ocurre por interrupcion (counter_sensor.cpp) y
     // el envio a servidor corre en su propia tarea (send_task.cpp).
